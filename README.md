@@ -180,11 +180,63 @@ So what we're doing here, we literally check, if the error is `nil`. If not, the
 
 ### Prepare the streamer
 
+[Beep](github.com/faiface/beep) requires us to prepare two things for the speaker to play the song. I don't want to get too much into what is needed for the setup here - you can read it all in the documentation and in the tutorial [here](https://github.com/faiface/beep/wiki/Hello,-Beep!).
+
+We need a `streamer` and a `format`. First one will be actually used for playing the song, second one will be used to setup a sample rate for the player. In your code add:
+
+**main.go**
+```go
+streamer, format, err := mp3.Decode(f)
+if err != nil {
+  log.Fatal(err)
+}
+defer streamer.Close()
+```
+
+`defer` is one of our magic tools - it means that the function will be executed only when the actual surrounding function exits. Think about it this way - it helps us manage any memory leaks we might have.
+
+### Set up speaker
+
+Let's set up the speaker:
+
+**main.go**
+```go
+speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+```
+
+First argument sets up the sample rate for the speaker (how quickly it should push the samples to output); second one sets up a buffer (a tradeoff between stability and latency).
+
+### Play the file
+
+We're almost there! The last thing is to actually play the song!
+
+**main.go**
+```go
+done := make(chan bool)
+speaker.Play(beep.Seq(streamer, beep.Callback(func() {
+  done <- true
+})))
+
+<-done
+```
+
+A LOT of things happening here. So, if we wouldn't use the magical `done`, then the song wouldn't play. You might ask why - the `speaker` is a stream, so it runs asynchronously from whatever we have. We need to block it somehow, right? That's why we've created a channel to block the outbound function from exiting.
+
+Channels in Go is the way we can share resources between multiple goroutines - or we can prevent the functions from finishing too early. It has A LOT of usages in the code.
+
+That done, we use `speaker.Play` to play the music! If we'd go into the documentation, we could do it in multiple ways but we need something that wraps a function that returns a value over our channel. 
+
+And that's it!
+
 [^Top](#top)
 
 <a name="improve"/>
 
 ## How To Improve
+
+The thing is - our app is pretty dumb right now. We can play only one song nor we can do anything about the song (speed it up or distort it).
+
+The first that would be best is to transform the player into a CLI to actually choose the song. Maybe then a nice UI...? 
 
 [^Top](#top)
 
@@ -192,4 +244,4 @@ So what we're doing here, we literally check, if the error is `nil`. If not, the
 
 ## About The Author
 
-
+Artur is a lead developer in ECS Digital working on all things Go. Read more @ [akondas.com](https://akondas.com/)
